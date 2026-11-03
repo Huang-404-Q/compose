@@ -33,3 +33,17 @@ func TestEventsUnknownService(t *testing.T) {
 	res := icmd.RunCmd(cmd)
 	res.Assert(t, icmd.Expected{ExitCode: 1, Err: "no such service: not-a-service"})
 }
+
+// Regression test for https://github.com/docker/compose/issues/14442:
+// `events --until` printed "EOF" and exited 1 when the Engine closed the
+// stream at the deadline, because io.EOF was reported as a failure.
+func TestEventsUntilExitsCleanly(t *testing.T) {
+	until := time.Now().Add(5 * time.Second).UTC().Format(time.RFC3339)
+	NewScenario(t, "events --until must exit 0 when the Engine closes the stream at the deadline").
+		Step("up starts a service to stream events from",
+			ComposeCmd("up", "-d"),
+			ServiceState("app", "running")).
+		Step("events --until returns success once the deadline closes the stream",
+			ComposeCmd("events", "--until", until).Within(30*time.Second),
+			ExitCode(0))
+}
