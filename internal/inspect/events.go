@@ -18,6 +18,8 @@ package inspect
 
 import (
 	"context"
+	"errors"
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -76,6 +78,12 @@ func (s *Service) Events(ctx context.Context, projectName string, options api.Ev
 			}
 
 		case err := <-res.Err:
+			// The Engine client reports a completely read stream as io.EOF,
+			// which is how a stream closed at --until ends. That is a clean
+			// end, not a failure.
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
 			return err
 		}
 	}
